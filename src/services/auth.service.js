@@ -4,6 +4,7 @@ import {
   signInWithPopup,
   signInWithEmailAndPassword,
   signOut,
+  fetchSignInMethodsForEmail,
 } from "firebase/auth";
 // 1. Updated Imports here
 import {
@@ -23,22 +24,12 @@ import { auth, db } from "../config/firebase";
  */
 export const checkEmailAvailability = async (email) => {
   try {
-    // Reference the users collection
-    const usersRef = collection(db, "users");
-
-    // Create a query against the collection where email matches
-    const q = query(usersRef, where("email", "==", email));
-
-    // Execute the query
-    const querySnapshot = await getDocs(q);
-
-    // If querySnapshot is empty, the email is NOT in the DB (Available)
-    // If it is NOT empty, the email exists (Not Available)
-    return { available: querySnapshot.empty };
+    const methods = await fetchSignInMethodsForEmail(auth, email);
+    // If methods array is empty, email is available
+    return { available: methods.length === 0 };
   } catch (error) {
     console.error("Error checking email availability:", error);
-    // In case of error (e.g., network or permission), return true
-    // so we don't block the user from trying to register.
+    // In case of error, assume available to not block registration
     return { available: true };
   }
 };
@@ -46,26 +37,56 @@ export const checkEmailAvailability = async (email) => {
 /**
  * REGISTER WITH EMAIL + PASSWORD
  */
-export const registerWithEmail = async (email, password, fullName) => {
+export const registerWithEmail = async (
+  email,
+  password,
+  fullName,
+  role = "student",
+  university_id = null,
+) => {
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     const user = cred.user;
+
+    // Check for existing admin if registering as admin
+    if (role === "admin" && university_id) {
+      const adminQuery = query(
+        collection(db, "users"),
+        where("role", "==", "admin"),
+        where("university_id", "==", university_id),
+      );
+      const adminSnap = await getDocs(adminQuery);
+      if (!adminSnap.empty) {
+        // Delete the created user
+        await user.delete();
+        throw new Error(
+          "This school already has an admin. You cannot register as admin for this school.",
+        );
+      }
+    }
 
     // Get ID token
     const token = await user.getIdToken();
 
     // Create Firestore profile
-    await setDoc(doc(db, "users", user.uid), {
+    const userData = {
       uid: user.uid,
       full_name: fullName,
       email: user.email,
-      role: "student",
-      university_id: null,
+      role: role,
+      university_id: university_id,
       department_id: null,
       level_id: null,
-      onboarding_completed: false,
       created_at: serverTimestamp(),
-    });
+    };
+
+    if (role === "student") {
+      userData.onboarding_completed = false;
+    } else if (role === "admin") {
+      userData.admin_onboarding_completed = false;
+    }
+
+    await setDoc(doc(db, "users", user.uid), userData);
 
     // Save session to localStorage
     localStorage.setItem(
@@ -74,7 +95,7 @@ export const registerWithEmail = async (email, password, fullName) => {
         uid: user.uid,
         email: user.email,
         token,
-      })
+      }),
     );
 
     return { user, token };
@@ -86,11 +107,11 @@ export const registerWithEmail = async (email, password, fullName) => {
       const querySnapshot = await getDocs(q);
       if (!querySnapshot.empty) {
         throw new Error(
-          "This email is already registered with Google. Please try logging in with Google instead."
+          "This email is already registered with Google. Please try logging in with Google instead.",
         );
       } else {
         throw new Error(
-          "This email is already registered. Please try logging in instead."
+          "This email is already registered. Please try logging in instead.",
         );
       }
     }
@@ -119,7 +140,7 @@ export const loginWithEmail = async (email, password) => {
       uid: user.uid,
       email: user.email,
       token,
-    })
+    }),
   );
 
   return { user, token, userData };
@@ -151,7 +172,7 @@ export const signInWithGoogle = async () => {
         onboarding_completed: false,
         created_at: serverTimestamp(),
       },
-      { merge: true }
+      { merge: true },
     );
 
     // Save session to localStorage
@@ -161,14 +182,14 @@ export const signInWithGoogle = async () => {
         uid: user.uid,
         email: user.email,
         token,
-      })
+      }),
     );
 
     return { user, token };
   } catch (error) {
     if (error.code === "auth/account-exists-with-different-credential") {
       throw new Error(
-        "This email is already registered with email/password. Please try logging in with email/password instead."
+        "This email is already registered with email/password. Please try logging in with email/password instead.",
       );
     }
     throw error;

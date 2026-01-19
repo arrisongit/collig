@@ -1,4 +1,4 @@
-import { assignUserUniversityAndRole } from "../../services/adminNotes.service";
+import { assignUserUniversityAndRole } from "../../services/admin.service";
 
 export default function UserRow({ user }) {
   return (

@@ -18,6 +18,7 @@ import {
   signInWithGoogle,
   checkEmailAvailability, // Ensure this is exported from auth.service
 } from "../../services/auth.service";
+import { getUniversities } from "../../services/onboarding.service";
 import { useAuth } from "../../context/AuthContext";
 
 export default function Register() {
@@ -26,6 +27,9 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [selectedSchool, setSelectedSchool] = useState("");
+  const [schools, setSchools] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // Validation State
@@ -45,10 +49,20 @@ export default function Register() {
   // Check if user is already logged in
   useEffect(() => {
     if (!authLoading && user) {
-      if (userData?.onboarding_completed) {
-        navigate("/dashboard");
-      } else {
+      if (userData?.role === "student" && !userData?.onboarding_completed) {
         navigate("/onboarding");
+      } else if (
+        userData?.role === "admin" &&
+        !userData?.admin_onboarding_completed
+      ) {
+        navigate("/admin");
+      } else {
+        const role = userData?.role;
+        if (role === "admin" || role === "super_admin") {
+          navigate("/admin");
+        } else {
+          navigate("/dashboard");
+        }
       }
     }
   }, [user, userData, authLoading, navigate]);
@@ -93,6 +107,24 @@ export default function Register() {
       setIsCheckingEmail(false);
     }
   }, [email]);
+
+  // Fetch schools when registering as admin
+  useEffect(() => {
+    if (isAdmin) {
+      const fetchSchools = async () => {
+        try {
+          const unis = await getUniversities();
+          setSchools(unis);
+        } catch (error) {
+          console.error("Error fetching schools:", error);
+        }
+      };
+      fetchSchools();
+    } else {
+      setSchools([]);
+      setSelectedSchool("");
+    }
+  }, [isAdmin]);
 
   // --- 2. Live Validation Logic (Sync) ---
   const validateField = (name, value) => {
@@ -170,6 +202,16 @@ export default function Register() {
     const isEmailValid = validFields.email;
     const isPasswordValid = validFields.password;
 
+    if (isAdmin && schools.length > 0 && !selectedSchool) {
+      setErrors((prev) => ({
+        ...prev,
+        school: "Please select a school to administer",
+      }));
+      controls.start("shake");
+      setLoading(false);
+      return;
+    }
+
     if (!isNameValid || !isEmailValid || !isPasswordValid || isCheckingEmail) {
       controls.start("shake");
       return;
@@ -177,9 +219,21 @@ export default function Register() {
 
     setLoading(true);
     try {
-      const { user } = await registerWithEmail(email, password, fullName);
+      const role = isAdmin ? "admin" : "student";
+      const university_id = isAdmin && selectedSchool ? selectedSchool : null;
+      const { user } = await registerWithEmail(
+        email,
+        password,
+        fullName,
+        role,
+        university_id,
+      );
       if (user) {
-        navigate("/onboarding");
+        if (role === "student") {
+          navigate("/onboarding");
+        } else {
+          navigate("/admin-onboarding");
+        }
       }
     } catch (err) {
       setErrors((prev) => ({ ...prev, form: err.message }));
@@ -193,7 +247,7 @@ export default function Register() {
     setLoading(true);
     try {
       const { user } = await signInWithGoogle();
-      if (user) navigate("/onboarding");
+      if (user) navigate("/dashboard");
     } catch (err) {
       setErrors((prev) => ({ ...prev, form: err.message }));
       controls.start("shake");
@@ -295,8 +349,8 @@ export default function Register() {
                   errors.fullName
                     ? "#e74c3c"
                     : validFields.fullName
-                    ? "#38A169"
-                    : "#F09819"
+                      ? "#38A169"
+                      : "#F09819"
                 }
               />
               <input
@@ -308,8 +362,8 @@ export default function Register() {
                   borderColor: errors.fullName
                     ? "#e74c3c"
                     : validFields.fullName
-                    ? "#38A169"
-                    : "rgba(0,0,0,0.1)",
+                      ? "#38A169"
+                      : "rgba(0,0,0,0.1)",
                   backgroundColor: errors.fullName ? "#fff5f5" : "white",
                 }}
                 placeholder="John Doe"
@@ -375,10 +429,10 @@ export default function Register() {
                   errors.email
                     ? "#e74c3c"
                     : validFields.email
-                    ? "#38A169"
-                    : isCheckingEmail
-                    ? "#F09819"
-                    : "#F09819"
+                      ? "#38A169"
+                      : isCheckingEmail
+                        ? "#F09819"
+                        : "#F09819"
                 }
               />
               <input
@@ -390,8 +444,8 @@ export default function Register() {
                   borderColor: errors.email
                     ? "#e74c3c"
                     : validFields.email
-                    ? "#38A169"
-                    : "rgba(0,0,0,0.1)",
+                      ? "#38A169"
+                      : "rgba(0,0,0,0.1)",
                   backgroundColor: errors.email ? "#fff5f5" : "white",
                 }}
                 placeholder="john@example.com"
@@ -435,8 +489,8 @@ export default function Register() {
                   errors.password
                     ? "#e74c3c"
                     : validFields.password
-                    ? "#38A169"
-                    : "#F09819"
+                      ? "#38A169"
+                      : "#F09819"
                 }
               />
               <input
@@ -448,8 +502,8 @@ export default function Register() {
                   borderColor: errors.password
                     ? "#e74c3c"
                     : validFields.password
-                    ? "#38A169"
-                    : "rgba(0,0,0,0.1)",
+                      ? "#38A169"
+                      : "rgba(0,0,0,0.1)",
                   backgroundColor: errors.password ? "#fff5f5" : "white",
                 }}
                 placeholder="••••••••"
@@ -478,6 +532,60 @@ export default function Register() {
                   8+ chars, 1 uppercase, 1 lowercase
                 </span>
               )}
+          </motion.div>
+
+          {/* School Selection for Admin */}
+          {isAdmin && schools.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              style={styles.fieldWrapper}
+            >
+              <div style={styles.labelRow}>
+                <label style={styles.label}>School to Administer</label>
+              </div>
+              <div style={styles.inputContainer}>
+                <select
+                  value={selectedSchool}
+                  onChange={(e) => setSelectedSchool(e.target.value)}
+                  style={styles.select}
+                >
+                  <option value="">Select a school...</option>
+                  {schools.map((school) => (
+                    <option key={school.id} value={school.id}>
+                      {school.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {errors.school && (
+                <motion.span
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  style={styles.fieldError}
+                >
+                  {errors.school}
+                </motion.span>
+              )}
+            </motion.div>
+          )}
+
+          {/* Admin Checkbox */}
+          <motion.div
+            animate={controls}
+            variants={shakeVariants}
+            style={styles.checkboxWrapper}
+          >
+            <label style={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={isAdmin}
+                onChange={(e) => setIsAdmin(e.target.checked)}
+                style={styles.checkbox}
+              />
+              <span style={styles.checkboxText}>Register as Admin</span>
+            </label>
           </motion.div>
 
           {/* Register Button */}
@@ -646,6 +754,18 @@ const styles = {
     color: "#2D3748",
     boxShadow: "0 2px 5px rgba(0,0,0,0.03)",
   },
+  select: {
+    width: "100%",
+    padding: "14px",
+    borderRadius: "12px",
+    border: "2px solid transparent",
+    fontSize: "16px",
+    outline: "none",
+    transition: "all 0.3s ease",
+    color: "#2D3748",
+    boxShadow: "0 2px 5px rgba(0,0,0,0.03)",
+    backgroundColor: "white",
+  },
   inputIcon: {
     position: "absolute",
     left: "14px",
@@ -728,4 +848,13 @@ const styles = {
   footer: { textAlign: "center", marginTop: "8px" },
   footerText: { fontSize: "14px", color: "#718096" },
   loginLink: { color: "#FF512F", textDecoration: "none", fontWeight: "700" },
+  checkboxWrapper: { display: "flex", alignItems: "center", marginTop: "8px" },
+  checkboxLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    cursor: "pointer",
+  },
+  checkbox: { width: "16px", height: "16px", cursor: "pointer" },
+  checkboxText: { fontSize: "14px", color: "#4A5568", fontWeight: "500" },
 };

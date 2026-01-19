@@ -10,9 +10,7 @@ service cloud.firestore {
       allow create: if
         request.auth != null &&
         request.auth.uid == userId &&
-        request.resource.data.role == "student" &&
-        !("onboarding_completed" in request.resource.data ||
-          request.resource.data.onboarding_completed == true);
+        request.resource.data.role in ["student", "admin"];
 
       // Students can update ONLY their own onboarding/profile data (no role changes)
       allow update: if

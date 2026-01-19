@@ -15,7 +15,12 @@ import {
   CalendarPlus,
   X,
   Users,
+  ArrowLeft,
+  UploadCloud,
 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { uploadEvent } from "./events.service";
+import { uploadImage } from "../../utils/uploadImage";
 
 // --- Font Injection ---
 const FontStyles = () => (
@@ -28,7 +33,8 @@ const FontStyles = () => (
 );
 
 export default function EventsPage() {
-  const { userData } = useAuth();
+  const { user, userData } = useAuth();
+  const navigate = useNavigate();
 
   // Data State
   const [events, setEvents] = useState([]);
@@ -38,6 +44,12 @@ export default function EventsPage() {
   const [filter, setFilter] = useState("upcoming"); // upcoming, past, all
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEvent, setSelectedEvent] = useState(null); // For Modal
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const handleBack = () => {
+    navigate("/dashboard");
+  };
 
   // --- Fetch Data ---
   useEffect(() => {
@@ -48,7 +60,7 @@ export default function EventsPage() {
         // Simple query, we will sort/filter client side for smoother UX on small datasets
         const q = query(
           collection(db, "events"),
-          where("university_id", "==", userData.university_id)
+          where("university_id", "==", userData.university_id),
         );
 
         const snapshot = await getDocs(q);
@@ -72,7 +84,7 @@ export default function EventsPage() {
     };
 
     loadEvents();
-  }, [userData?.university_id]);
+  }, [userData?.university_id, reloadKey]);
 
   // --- Filtering Logic ---
   const filteredEvents = useMemo(() => {
@@ -93,7 +105,7 @@ export default function EventsPage() {
       result = result.filter(
         (e) =>
           e.title.toLowerCase().includes(lowerQ) ||
-          e.location?.toLowerCase().includes(lowerQ)
+          e.location?.toLowerCase().includes(lowerQ),
       );
     }
 
@@ -137,23 +149,40 @@ export default function EventsPage() {
 
         <div style={styles.contentContainer}>
           {/* HEADER */}
-          <div style={styles.header}>
+          <header style={styles.header}>
             <div>
-              <h1 style={styles.pageTitle}>Campus Events</h1>
-              <p style={styles.pageSubtitle}>
-                Discover what's happening at {userData.university_name}
-              </p>
+              {/* REPLACED BREADCRUMBS WITH BACK BUTTON */}
+              <motion.button
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                onClick={handleBack}
+                style={styles.backButton}
+                whileHover={{ x: -4 }}
+              >
+                <ArrowLeft size={18} />
+                <span>Back</span>
+              </motion.button>
+
+              <motion.h1
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                style={styles.title}
+              >
+                Resources
+              </motion.h1>
             </div>
-            <div style={styles.searchBar}>
-              <Search size={18} color="#6B7280" />
-              <input
-                placeholder="Search events..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={styles.searchInput}
-              />
-            </div>
-          </div>
+
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowCreateModal(true)}
+              style={styles.uploadBtn}
+            >
+              <UploadCloud size={18} />
+              <span>Upload</span>
+            </motion.button>
+          </header>
 
           {/* FEATURED EVENT (Only show if not searching/filtering past) */}
           {!searchQuery && filter === "upcoming" && featuredEvent && (
@@ -208,6 +237,15 @@ export default function EventsPage() {
               onClose={() => setSelectedEvent(null)}
             />
           )}
+          {showCreateModal && (
+            <EventCreateModal
+              onClose={() => setShowCreateModal(false)}
+              onCreated={() => {
+                setShowCreateModal(false);
+                setReloadKey((k) => k + 1);
+              }}
+            />
+          )}
         </AnimatePresence>
       </div>
     </>
@@ -253,6 +291,177 @@ const FeaturedCard = ({ event, onClick }) => {
   );
 };
 
+const EventCreateModal = ({ onClose, onCreated }) => {
+  const { user, userData } = useAuth();
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    date: "",
+    time: "",
+    location: "",
+    image: null,
+  });
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((p) => ({ ...p, [name]: value }));
+    if (errors[name]) setErrors((s) => ({ ...s, [name]: null }));
+  };
+
+  const handleFile = (e) => {
+    if (e.target.files && e.target.files[0])
+      setForm((p) => ({ ...p, image: e.target.files[0] }));
+  };
+
+  const validate = () => {
+    const e = {};
+    if (!form.title.trim()) e.title = "Title required";
+    if (!form.date) e.date = "Date required";
+    if (!form.time) e.time = "Time required";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const handleSubmit = async (ev) => {
+    ev.preventDefault();
+    if (!validate()) return;
+    setLoading(true);
+    try {
+      let imageUrl = null;
+      if (form.image) {
+        const res = await uploadImage(form.image);
+        imageUrl = res.secure_url;
+      }
+      const dateObj = new Date(`${form.date}T${form.time}`);
+      await uploadEvent({
+        title: form.title,
+        description: form.description,
+        date: dateObj,
+        location: form.location,
+        image_url: imageUrl,
+        uploader_id: user?.uid || null,
+        uploader_name: userData?.full_name || null,
+        university_id: userData?.university_id || null,
+        visibility: "school_only",
+      });
+      onCreated && onCreated();
+    } catch (err) {
+      console.error("Create event failed", err);
+      setErrors((s) => ({ ...s, form: "Failed to create event" }));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      style={styles.modalOverlay}
+      onClick={onClose}
+    >
+      <motion.form
+        initial={{ y: 100, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 100, opacity: 0 }}
+        style={{ ...styles.modalCard, width: "100%", height: "100%" }}
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={handleSubmit}
+      >
+        <div style={styles.modalHeader}>
+          <h2 style={{ margin: 0 }}>Create Event</h2>
+          <button onClick={onClose} style={styles.closeBtn} type="button">
+            <X size={24} />
+          </button>
+        </div>
+        <div style={{ padding: 24, overflow: "auto", flex: 1 }}>
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Title</label>
+            <input
+              name="title"
+              value={form.title}
+              onChange={handleChange}
+              style={styles.input}
+            />
+            {errors.title && (
+              <span style={styles.errorText}>{errors.title}</span>
+            )}
+          </div>
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Description</label>
+            <textarea
+              name="description"
+              value={form.description}
+              onChange={handleChange}
+              style={{ ...styles.input, minHeight: 120 }}
+            />
+          </div>
+          <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label style={styles.label}>Date</label>
+              <input
+                type="date"
+                name="date"
+                value={form.date}
+                onChange={handleChange}
+                style={styles.input}
+              />
+              {errors.date && (
+                <span style={styles.errorText}>{errors.date}</span>
+              )}
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={styles.label}>Time</label>
+              <input
+                type="time"
+                name="time"
+                value={form.time}
+                onChange={handleChange}
+                style={styles.input}
+              />
+              {errors.time && (
+                <span style={styles.errorText}>{errors.time}</span>
+              )}
+            </div>
+          </div>
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Location</label>
+            <input
+              name="location"
+              value={form.location}
+              onChange={handleChange}
+              style={styles.input}
+            />
+          </div>
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Image (optional)</label>
+            <input type="file" accept="image/*" onChange={handleFile} />
+          </div>
+          {errors.form && <div style={styles.globalError}>{errors.form}</div>}
+        </div>
+        <div
+          style={{
+            padding: 24,
+            borderTop: "1px solid #E5E7EB",
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 12,
+          }}
+        >
+          <button type="button" onClick={onClose} style={styles.cancelBtn}>
+            Cancel
+          </button>
+          <button type="submit" disabled={loading} style={styles.submitBtn}>
+            {loading ? "Creating..." : "Create Event"}
+          </button>
+        </div>
+      </motion.form>
+    </motion.div>
+  );
+};
 const EventCard = ({ event, onClick }) => {
   const month = event.jsDate.toLocaleString("default", { month: "short" });
   const day = event.jsDate.getDate();
@@ -446,6 +655,34 @@ const styles = {
     marginBottom: "30px",
     flexWrap: "wrap",
     gap: "20px",
+  },
+  backButton: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    background: "none",
+    border: "none",
+    color: "#6B7280",
+    fontSize: "14px",
+    fontWeight: "600",
+    cursor: "pointer",
+    padding: "0",
+    marginBottom: "12px",
+    transition: "color 0.2s",
+  },
+  uploadBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    backgroundColor: "#4F46E5",
+    color: "white",
+    border: "none",
+    borderRadius: "12px",
+    padding: "12px 20px",
+    fontSize: "14px",
+    fontWeight: "600",
+    cursor: "pointer",
+    boxShadow: "0 4px 12px rgba(79, 70, 229, 0.3)",
   },
   pageTitle: {
     fontSize: "32px",
@@ -756,5 +993,37 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     color: "#374151",
+  },
+  formGroup: { marginBottom: "16px" },
+  label: {
+    display: "block",
+    marginBottom: "8px",
+    fontSize: "14px",
+    fontWeight: 700,
+  },
+  input: {
+    width: "100%",
+    padding: "10px",
+    borderRadius: "8px",
+    border: "1px solid #E5E7EB",
+    fontSize: "14px",
+  },
+  errorText: { color: "#EF4444", fontSize: "13px", marginTop: "6px" },
+  globalError: { color: "#EF4444", padding: "8px 0" },
+  cancelBtn: {
+    padding: "10px 16px",
+    borderRadius: "10px",
+    border: "1px solid #E5E7EB",
+    background: "white",
+    cursor: "pointer",
+  },
+  submitBtn: {
+    padding: "10px 16px",
+    borderRadius: "10px",
+    border: "none",
+    background: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)",
+    color: "white",
+    fontWeight: "700",
+    cursor: "pointer",
   },
 };

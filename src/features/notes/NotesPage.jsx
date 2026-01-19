@@ -22,6 +22,7 @@ import {
   ChevronDown,
   X,
   BookOpen,
+  ArrowLeft,
 } from "lucide-react";
 
 // --- Font Injection ---
@@ -58,6 +59,10 @@ export default function NotesPage() {
     course_id: "",
   });
 
+  const handleBack = () => {
+    navigate("/dashboard");
+  };
+
   // --- Initial Data Load ---
   useEffect(() => {
     const loadFilters = async () => {
@@ -89,7 +94,7 @@ export default function NotesPage() {
     try {
       const fetchedNotes = await fetchNotesByCourse(
         selectedFilters.course_id,
-        userData.university_id
+        userData.university_id,
       );
       setNotes(fetchedNotes);
 
@@ -149,7 +154,7 @@ export default function NotesPage() {
 
   // Filter notes locally by search query
   const filteredNotes = notes.filter((note) =>
-    note.title.toLowerCase().includes(searchQuery.toLowerCase())
+    note.title.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (
@@ -185,24 +190,25 @@ export default function NotesPage() {
           {/* --- HEADER --- */}
           <header style={styles.header}>
             <div>
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
+              {/* REPLACED BREADCRUMBS WITH BACK BUTTON */}
+              <motion.button
+                initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                style={styles.breadcrumb}
+                onClick={handleBack}
+                style={styles.backButton}
+                whileHover={{ x: -4 }}
               >
-                <Link to="/dashboard" style={styles.backLink}>
-                  Dashboard
-                </Link>
-                <span style={{ margin: "0 8px" }}>/</span>
-                <span>Notes</span>
-              </motion.div>
+                <ArrowLeft size={18} />
+                <span>Back</span>
+              </motion.button>
+
               <motion.h1
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                style={styles.title}
+                style={styles.pageTitle}
               >
-                Study Resources
+                Resources
               </motion.h1>
             </div>
 
@@ -518,18 +524,33 @@ const styles = {
   header: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "flex-end",
+    alignItems: "end",
     marginBottom: "30px",
   },
-  breadcrumb: {
-    fontSize: "13px",
-    color: "#6B7280",
-    marginBottom: "8px",
+  backButton: {
     display: "flex",
     alignItems: "center",
+    gap: "6px",
+    background: "none",
+    border: "none",
+    color: "#6B7280",
+    fontSize: "14px",
+    fontWeight: "600",
+    cursor: "pointer",
+    padding: "0",
+    marginBottom: "12px",
+    transition: "color 0.2s",
+  },
+
+  title: {
+    fontSize: "28px",
+    fontWeight: "800",
+    color: "#111827",
+    margin: 0,
+    lineHeight: "1.2",
   },
   backLink: { textDecoration: "none", color: "#6B7280", fontWeight: "600" },
-  title: {
+  pageTitle: {
     fontSize: "28px",
     fontWeight: "800",
     color: "#111827",

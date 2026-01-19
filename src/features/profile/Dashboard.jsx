@@ -18,6 +18,7 @@ import {
   User,
   Settings,
   MoreHorizontal,
+  TextAlignCenter,
 } from "lucide-react";
 import { denormalizeUserProfile } from "../../services/onboarding.service";
 
@@ -370,14 +371,17 @@ export default function Dashboard() {
                 <h3 style={styles.passRole}>
                   {denormalizedProfile.role || userData.role}
                 </h3>
-                <div style={styles.passDetails}>
-                  <p>{denormalizedProfile.department?.name || "Department"}</p>
-                  <p>•</p>
-                  <p>{denormalizedProfile.level?.name || "Level"}</p>
-                </div>
               </div>
               <div style={styles.passFooter}>
-                <span style={styles.passId}>Student ID</span>
+                <span style={styles.passId}>
+                  <div style={styles.passDetails}>
+                    <p>
+                      {denormalizedProfile.department?.name || "Department"}
+                    </p>
+                    <p>•</p>
+                    <p>{denormalizedProfile.level?.name || "Level"}</p>
+                  </div>
+                </span>
                 <div style={styles.activeDot} />
               </div>
             </motion.div>
@@ -411,17 +415,6 @@ export default function Dashboard() {
               delay={0.6}
               onClick={() => navigate("/explore")}
             />
-
-            {isAdmin && (
-              <motion.div
-                style={styles.adminTile}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => navigate("/admin")}
-              >
-                <span>Admin Panel</span>
-                <ChevronRight size={16} />
-              </motion.div>
-            )}
           </div>
           <div style={{ height: "100px" }} /> {/* Spacer for dock */}
         </div>
@@ -744,7 +737,7 @@ const EditProfileModal = ({
       </button>
 
       <div style={styles.modalHeader}>
-        <h2 style={styles.modalTitle}>Edit Profile</h2>
+        <h2 style={styles.largeModalTitle}>Edit Profile</h2>
         <p style={styles.modalSubtitle}>Update your personal information</p>
       </div>
 
@@ -814,7 +807,7 @@ const EditProfileModal = ({
         <button
           type="button"
           onClick={onClose}
-          style={styles.cancelBtn}
+          style={styles.modalCancelBtn}
           disabled={loading}
         >
           Cancel
@@ -937,7 +930,11 @@ const NotificationsModal = ({
       {success && <div style={styles.successMessage}>{success}</div>}
 
       <div style={styles.modalActions}>
-        <button onClick={onClose} style={styles.cancelBtn} disabled={loading}>
+        <button
+          onClick={onClose}
+          style={styles.modalCancelBtn}
+          disabled={loading}
+        >
           Cancel
         </button>
         <button onClick={onSubmit} style={styles.saveBtn} disabled={loading}>
@@ -1052,7 +1049,11 @@ const PrivacySecurityModal = ({
       {success && <div style={styles.successMessage}>{success}</div>}
 
       <div style={styles.modalActions}>
-        <button onClick={onClose} style={styles.cancelBtn} disabled={loading}>
+        <button
+          onClick={onClose}
+          style={styles.modalCancelBtn}
+          disabled={loading}
+        >
           Cancel
         </button>
         <button onClick={onSubmit} style={styles.saveBtn} disabled={loading}>
@@ -1164,7 +1165,11 @@ const AppSettingsModal = ({
       {success && <div style={styles.successMessage}>{success}</div>}
 
       <div style={styles.modalActions}>
-        <button onClick={onClose} style={styles.cancelBtn} disabled={loading}>
+        <button
+          onClick={onClose}
+          style={styles.modalCancelBtn}
+          disabled={loading}
+        >
           Cancel
         </button>
         <button onClick={onSubmit} style={styles.saveBtn} disabled={loading}>
@@ -1386,7 +1391,11 @@ ${contactForm.message}
           {success && <div style={styles.successMessage}>{success}</div>}
 
           <div style={styles.modalActions}>
-            <button type="button" onClick={onClose} style={styles.cancelBtn}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={styles.modalCancelBtn}
+            >
               Cancel
             </button>
             <button type="submit" style={styles.saveBtn}>
@@ -1495,7 +1504,7 @@ const styles = {
   // HEADER
   header: {
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent: "center",
     alignItems: "center",
     marginBottom: "24px",
     paddingTop: "10px",
@@ -1530,6 +1539,7 @@ const styles = {
     fontWeight: "800",
     color: "#111827",
     margin: 0,
+    textAlign: "center",
   },
   notificationBtn: {
     width: "40px",
@@ -1935,7 +1945,7 @@ const styles = {
   modalHeader: {
     marginBottom: "24px",
   },
-  modalTitle: {
+  largeModalTitle: {
     fontSize: "24px",
     fontWeight: "800",
     color: "#111827",
@@ -2065,7 +2075,7 @@ const styles = {
     gap: "12px",
     justifyContent: "flex-end",
   },
-  cancelBtn: {
+  modalCancelBtn: {
     padding: "12px 24px",
     border: "1px solid #E5E7EB",
     borderRadius: "8px",

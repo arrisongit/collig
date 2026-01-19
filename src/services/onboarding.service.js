@@ -1,5 +1,20 @@
 // src\services\onboarding.service.js
 
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "../config/firebase";
+
+/**
+ * FETCH APPROVED UNIVERSITIES FROM FIRESTORE
+ */
+export const getUniversities = async () => {
+  const q = query(
+    collection(db, "universities"),
+    where("status", "==", "approved"),
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+};
+
 const universitiesData = [
   // Public Universities
   { id: "uni_001", name: "University of Nairobi", type: "public" },
@@ -700,13 +715,6 @@ const coursesData = [
     department_id: "dept_102",
   },
 ];
-
-/**
- * FETCH UNIVERSITIES (HARDCODED)
- */
-export const getUniversities = async () => {
-  return universitiesData;
-};
 
 /**
  * FETCH DEPARTMENTS (HARDCODED)

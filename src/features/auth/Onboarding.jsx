@@ -125,7 +125,7 @@ export default function Onboarding() {
 
       const role = userData?.role || "student";
       navigate(
-        role === "admin" || role === "super_admin" ? "/admin" : "/dashboard"
+        role === "admin" || role === "super_admin" ? "/admin" : "/dashboard",
       );
     } catch (err) {
       console.error("Error completing onboarding:", err);
