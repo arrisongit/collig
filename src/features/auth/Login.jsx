@@ -20,9 +20,9 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   // Validation State
-  const [errors, setErrors] = useState({});
   // Track if a field is valid to show the green checkmark
   const [validFields, setValidFields] = useState({
     email: false,
@@ -32,16 +32,27 @@ export default function Login() {
   const controls = useAnimation();
   const navigate = useNavigate();
 
-  // Check if user is already logged in
+  /**
+   * Auto-redirect if already logged in
+   */
   useEffect(() => {
-    if (!authLoading && user) {
-      if (userData?.onboarding_completed) {
-        navigate("/dashboard");
-      } else {
-        navigate("/onboarding");
-      }
+    if (!loading && userData) {
+      redirectByRole(userData);
     }
-  }, [user, userData, authLoading, navigate]);
+  }, [loading, userData]);
+
+  /**
+   * Redirect based on role
+   */
+  const redirectByRole = (data) => {
+    if (!data?.role) return;
+
+    if (data.role === "admin" || data.role === "super_admin") {
+      navigate("/admin", { replace: true });
+    } else {
+      navigate("/dashboard", { replace: true });
+    }
+  };
 
   // --- Live Validation Logic ---
   const validateField = (name, value) => {
@@ -79,7 +90,7 @@ export default function Login() {
     }
 
     // Update state
-    setErrors((prev) => ({ ...prev, [name]: isValid ? "" : errorMsg }));
+    seterror((prev) => ({ ...prev, [name]: isValid ? "" : errorMsg }));
     setValidFields((prev) => ({ ...prev, [name]: isValid }));
 
     return isValid;
@@ -98,42 +109,31 @@ export default function Login() {
     validateField("password", val);
   };
 
-  const handleLogin = async (e) => {
+  /**
+   * Email Login
+   */
+  const handleEmailLogin = async (e) => {
     e.preventDefault();
-
-    // Final check before submission
-    const isEmailValid = validateField("email", email);
-    const isPasswordValid = validateField("password", password);
-
-    if (!isEmailValid || !isPasswordValid) {
-      controls.start("shake");
-      return;
-    }
-
-    setLoading(true);
+    setError("");
     try {
-      const { user, userData } = await loginWithEmail(email, password);
-      if (user) {
-        navigate(userData?.onboarding_completed ? "/dashboard" : "/onboarding");
-      }
+      const { userData } = await loginWithEmail(email, password);
+      redirectByRole(userData);
     } catch (err) {
-      setErrors((prev) => ({ ...prev, form: err.message }));
-      controls.start("shake");
-    } finally {
-      setLoading(false);
+      setError(err.message);
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
+  /**
+   * Google Login
+   */
+  const handleGoogleLogin = async () => {
+    setError("");
+
     try {
-      const { user } = await signInWithGoogle();
-      if (user) navigate("/onboarding");
+      const { userData } = await signInWithGoogle();
+      redirectByRole(userData);
     } catch (err) {
-      setErrors((prev) => ({ ...prev, form: err.message }));
-      controls.start("shake");
-    } finally {
-      setLoading(false);
+      setError(err.message);
     }
   };
 
@@ -192,7 +192,7 @@ export default function Login() {
 
         {/* Global Error Message */}
         <AnimatePresence>
-          {errors.form && (
+          {error && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
@@ -200,12 +200,12 @@ export default function Login() {
               style={styles.globalError}
             >
               <AlertCircle size={16} />
-              {errors.form}
+              {error}
             </motion.div>
           )}
         </AnimatePresence>
 
-        <form onSubmit={handleLogin} style={styles.form}>
+        <form onSubmit={handleEmailLogin} style={styles.form}>
           {/* Email Field */}
           <motion.div
             animate={controls}
@@ -239,11 +239,11 @@ export default function Login() {
                 size={18}
                 style={styles.inputIcon}
                 color={
-                  errors.email
+                  error.email
                     ? "#e74c3c"
                     : validFields.email
-                    ? "#38A169"
-                    : "#F09819"
+                      ? "#38A169"
+                      : "#F09819"
                 }
               />
               <input
@@ -252,23 +252,23 @@ export default function Login() {
                 onChange={handleEmailChange}
                 style={{
                   ...styles.input,
-                  borderColor: errors.email
+                  borderColor: error.email
                     ? "#e74c3c"
                     : validFields.email
-                    ? "#38A169"
-                    : "rgba(0,0,0,0.1)",
-                  backgroundColor: errors.email ? "#fff5f5" : "white",
+                      ? "#38A169"
+                      : "rgba(0,0,0,0.1)",
+                  backgroundColor: error.email ? "#fff5f5" : "white",
                 }}
                 placeholder="name@example.com"
               />
             </div>
-            {errors.email && (
+            {error.email && (
               <motion.span
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 style={styles.fieldError}
               >
-                {errors.email}
+                {error.email}
               </motion.span>
             )}
           </motion.div>
@@ -312,11 +312,11 @@ export default function Login() {
                 size={18}
                 style={styles.inputIcon}
                 color={
-                  errors.password
+                  error.password
                     ? "#e74c3c"
                     : validFields.password
-                    ? "#38A169"
-                    : "#F09819"
+                      ? "#38A169"
+                      : "#F09819"
                 }
               />
               <input
@@ -325,12 +325,12 @@ export default function Login() {
                 onChange={handlePasswordChange}
                 style={{
                   ...styles.input,
-                  borderColor: errors.password
+                  borderColor: error.password
                     ? "#e74c3c"
                     : validFields.password
-                    ? "#38A169"
-                    : "rgba(0,0,0,0.1)",
-                  backgroundColor: errors.password ? "#fff5f5" : "white",
+                      ? "#38A169"
+                      : "rgba(0,0,0,0.1)",
+                  backgroundColor: error.password ? "#fff5f5" : "white",
                 }}
                 placeholder="••••••••"
               />
@@ -343,20 +343,20 @@ export default function Login() {
               </button>
             </div>
             {/* Live Error Message for Password */}
-            {errors.password && (
+            {error.password && (
               <motion.span
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 style={styles.fieldError}
               >
-                {errors.password}
+                {error.password}
               </motion.span>
             )}
 
             {/* Password Hint (Only show if typing and invalid) */}
             {!validFields.password &&
               password.length > 0 &&
-              !errors.password && (
+              !error.password && (
                 <span style={styles.hintText}>
                   Must be 8+ chars, 1 uppercase, 1 lowercase
                 </span>
@@ -398,7 +398,7 @@ export default function Login() {
         <motion.button
           whileHover={{ scale: 1.02, backgroundColor: "#fafafa" }}
           whileTap={{ scale: 0.98 }}
-          onClick={handleGoogleSignIn}
+          onClick={handleGoogleLogin}
           disabled={loading}
           style={styles.googleBtn}
         >

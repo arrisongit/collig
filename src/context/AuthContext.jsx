@@ -12,42 +12,28 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-
-        // Get ID token
-        const idToken = await currentUser.getIdToken();
-        setToken(idToken);
-
-        // Fetch user profile from Firestore
-        const userSnap = await getDoc(doc(db, "users", currentUser.uid));
-        const profile = userSnap.data();
-        setUserData(profile);
-
-        // Update localStorage
-        localStorage.setItem(
-          "auth_session",
-          JSON.stringify({
-            uid: currentUser.uid,
-            email: currentUser.email,
-            token: idToken,
-          })
-        );
-      } else {
+    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
         setUser(null);
         setUserData(null);
-        setToken(null);
-        localStorage.removeItem("auth_session");
+        setLoading(false);
+        return;
       }
+
+      setUser(firebaseUser);
+
+      const snap = await getDoc(doc(db, "users", firebaseUser.uid));
+      setUserData(snap.exists() ? snap.data() : null);
+
       setLoading(false);
     });
-    return unsub;
+
+    return () => unsub();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, userData, token, loading }}>
-      {children}
+    <AuthContext.Provider value={{ user, userData, loading }}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 };

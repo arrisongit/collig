@@ -10,13 +10,17 @@ service cloud.firestore {
       allow create: if
         request.auth != null &&
         request.auth.uid == userId &&
-        request.resource.data.role in ["student", "admin"];
+        request.resource.data.role in ["student", "admin"] &&
+        (
+          (request.resource.data.role == "student" && request.resource.data.onboarding_completed is bool) ||
+          (request.resource.data.role == "admin" && request.resource.data.admin_onboarding_completed is bool)
+        );
 
       // Students can update ONLY their own onboarding/profile data (no role changes)
       allow update: if
-        request.auth != null &&
-        request.auth.uid == userId &&
-        !("role" in request.resource.data);
+  request.auth != null &&
+  request.auth.uid == userId &&
+  request.resource.data.role == resource.data.role;
 
       // Super admin can read/update/delete anyone
       allow read, update, delete: if

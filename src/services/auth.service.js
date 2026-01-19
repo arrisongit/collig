@@ -18,6 +18,9 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { auth, db } from "../config/firebase";
+import { getFriendlyAuthError } from "../utils/firebaseErrors";
+
+const googleProvider = new GoogleAuthProvider();
 
 /**
  * CHECK IF EMAIL EXISTS (For Live Validation)
@@ -120,79 +123,44 @@ export const registerWithEmail = async (
 };
 
 /**
- * LOGIN WITH EMAIL + PASSWORD
+ * Email / Password Login
  */
 export const loginWithEmail = async (email, password) => {
-  const cred = await signInWithEmailAndPassword(auth, email, password);
-  const user = cred.user;
+  try {
+    const res = await signInWithEmailAndPassword(auth, email, password);
+    const user = res.user;
+    const token = await user.getIdToken();
 
-  // Get ID token
-  const token = await user.getIdToken();
+    const snap = await getDoc(doc(db, "users", user.uid));
 
-  // Fetch user profile from Firestore
-  const userSnap = await getDoc(doc(db, "users", user.uid));
-  const userData = userSnap.data();
+    if (!snap.exists()) {
+      throw new Error("User account not found. Please register.");
+    }
 
-  // Save session to localStorage
-  localStorage.setItem(
-    "auth_session",
-    JSON.stringify({
-      uid: user.uid,
-      email: user.email,
-      token,
-    }),
-  );
-
-  return { user, token, userData };
+    return { user, token, userData: snap.data() };
+  } catch (error) {
+    throw new Error(getFriendlyAuthError(error));
+  }
 };
 
 /**
- * GOOGLE SIGN-IN
+ * Google Login
  */
 export const signInWithGoogle = async () => {
   try {
-    const provider = new GoogleAuthProvider();
-    const cred = await signInWithPopup(auth, provider);
-    const user = cred.user;
-
-    // Get ID token
+    const res = await signInWithPopup(auth, googleProvider);
+    const user = res.user;
     const token = await user.getIdToken();
 
-    // Create profile ONLY if first time
-    await setDoc(
-      doc(db, "users", user.uid),
-      {
-        uid: user.uid,
-        full_name: user.displayName,
-        email: user.email,
-        role: "student",
-        university_id: null,
-        department_id: null,
-        level_id: null,
-        onboarding_completed: false,
-        created_at: serverTimestamp(),
-      },
-      { merge: true },
-    );
+    const snap = await getDoc(doc(db, "users", user.uid));
 
-    // Save session to localStorage
-    localStorage.setItem(
-      "auth_session",
-      JSON.stringify({
-        uid: user.uid,
-        email: user.email,
-        token,
-      }),
-    );
-
-    return { user, token };
-  } catch (error) {
-    if (error.code === "auth/account-exists-with-different-credential") {
-      throw new Error(
-        "This email is already registered with email/password. Please try logging in with email/password instead.",
-      );
+    if (!snap.exists()) {
+      throw new Error("No account found. Please register first.");
     }
-    throw error;
+
+    return { user, token, userData: snap.data() };
+  } catch (error) {
+    throw new Error(getFriendlyAuthError(error));
   }
 };
 
