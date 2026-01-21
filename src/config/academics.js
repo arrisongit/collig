@@ -1,28 +1,14 @@
-// src\services\onboarding.service.js
-
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "../config/firebase";
-
-/**
- * FETCH APPROVED UNIVERSITIES FROM FIRESTORE
- */
-export const getUniversities = async () => {
-  const q = query(
-    collection(db, "universities"),
-    where("status", "==", "approved"),
-  );
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-};
-
-const universitiesData = [
-  // Public Universities
+// src/config/academics.js
+export const universitiesData = [
+  /* =======================
+     PUBLIC UNIVERSITIES
+  ======================= */
   { id: "uni_001", name: "University of Nairobi", type: "public" },
   { id: "uni_002", name: "Kenyatta University", type: "public" },
   { id: "uni_003", name: "Moi University", type: "public" },
   {
     id: "uni_004",
-    name: "Jomo Kenyatta University of Agriculture and Technology (JKUAT)",
+    name: "Jomo Kenyatta University of Agriculture and Technology",
     type: "public",
   },
   { id: "uni_005", name: "Egerton University", type: "public" },
@@ -32,75 +18,152 @@ const universitiesData = [
     name: "Masinde Muliro University of Science and Technology",
     type: "public",
   },
-  // Private Universities
-  { id: "uni_008", name: "Strathmore University", type: "private" },
-  {
-    id: "uni_009",
-    name: "United States International University (USIU)",
-    type: "private",
-  },
-  { id: "uni_010", name: "Aga Khan University", type: "private" },
+  { id: "uni_008", name: "Technical University of Kenya", type: "public" },
+  { id: "uni_009", name: "Technical University of Mombasa", type: "public" },
+  { id: "uni_010", name: "Multimedia University of Kenya", type: "public" },
   {
     id: "uni_011",
-    name: "Multimedia University of Kenya (MMU)",
-    type: "private",
+    name: "Dedan Kimathi University of Technology",
+    type: "public",
   },
-  { id: "uni_012", name: "Karatina University", type: "private" },
-  { id: "uni_013", name: "Kisii University", type: "private" },
-  { id: "uni_014", name: "Mount Kenya University", type: "private" },
-  { id: "uni_015", name: "Kabarak University", type: "private" },
-  { id: "uni_016", name: "Laikipia University", type: "private" },
-  { id: "uni_017", name: "Kca University", type: "private" },
+  { id: "uni_012", name: "Chuka University", type: "public" },
+  { id: "uni_013", name: "Kibabii University", type: "public" },
+  { id: "uni_014", name: "Laikipia University", type: "public" },
+  { id: "uni_015", name: "Machakos University", type: "public" },
+  { id: "uni_016", name: "Maasai Mara University", type: "public" },
+  { id: "uni_017", name: "Pwani University", type: "public" },
+  { id: "uni_018", name: "South Eastern Kenya University", type: "public" },
+  { id: "uni_019", name: "Taita Taveta University", type: "public" },
+  { id: "uni_020", name: "University of Eldoret", type: "public" },
+  { id: "uni_021", name: "University of Embu", type: "public" },
+  { id: "uni_022", name: "University of Kabianga", type: "public" },
+  { id: "uni_023", name: "Karatina University", type: "public" },
+  { id: "uni_024", name: "Kirinyaga University", type: "public" },
   {
-    id: "uni_018",
-    name: "Nairobi Institute of Business Studies",
+    id: "uni_025",
+    name: "Meru University of Science and Technology",
+    type: "public",
+  },
+  { id: "uni_026", name: "Rongo University", type: "public" },
+  { id: "uni_027", name: "Kisii University", type: "public" },
+  { id: "uni_028", name: "Garissa University", type: "public" },
+  { id: "uni_029", name: "Alupe University", type: "public" },
+  { id: "uni_030", name: "Co-operative University of Kenya", type: "public" },
+  { id: "uni_031", name: "Murang’a University of Technology", type: "public" },
+  { id: "uni_032", name: "Open University of Kenya", type: "public" },
+  {
+    id: "uni_033",
+    name: "National Defence University – Kenya",
+    type: "public",
+  },
+
+  /* =======================
+     PRIVATE UNIVERSITIES
+  ======================= */
+  { id: "uni_101", name: "Strathmore University", type: "private" },
+  {
+    id: "uni_102",
+    name: "United States International University – Africa (USIU-A)",
     type: "private",
   },
-  { id: "uni_019", name: "Africana First University", type: "private" },
-  { id: "uni_020", name: "Pan Africa Christian University", type: "private" },
-  // Colleges
+  { id: "uni_103", name: "Aga Khan University", type: "private" },
+  { id: "uni_104", name: "Mount Kenya University", type: "private" },
+  { id: "uni_105", name: "Kabarak University", type: "private" },
+  { id: "uni_106", name: "Africa Nazarene University", type: "private" },
+  { id: "uni_107", name: "Daystar University", type: "private" },
+  {
+    id: "uni_108",
+    name: "Catholic University of Eastern Africa",
+    type: "private",
+  },
+  { id: "uni_109", name: "Kenya Methodist University", type: "private" },
+  { id: "uni_110", name: "KCA University", type: "private" },
+  { id: "uni_111", name: "Management University of Africa", type: "private" },
+  { id: "uni_112", name: "Zetech University", type: "private" },
+  { id: "uni_113", name: "Pan Africa Christian University", type: "private" },
+  { id: "uni_114", name: "Riara University", type: "private" },
+  { id: "uni_115", name: "St. Paul’s University", type: "private" },
+  { id: "uni_116", name: "Scott Christian University", type: "private" },
+  { id: "uni_117", name: "Great Lakes University of Kisumu", type: "private" },
+  { id: "uni_118", name: "Umma University", type: "private" },
+  { id: "uni_119", name: "Amref International University", type: "private" },
+
+  /* =======================
+     NATIONAL COLLEGES & INSTITUTES
+  ======================= */
   {
     id: "col_001",
-    name: "Kenya Institute of Banking and Insurance Studies (KIBIS)",
+    name: "Kenya Medical Training College (KMTC)",
     type: "college",
   },
-  { id: "col_002", name: "Kenya National Police College", type: "college" },
-  { id: "col_003", name: "East Africa School of Aviation", type: "college" },
   {
-    id: "col_004",
-    name: "Kenya Tourism Board Training Institute",
+    id: "col_002",
+    name: "Kenya Institute of Banking and Insurance",
     type: "college",
   },
-  { id: "col_005", name: "Nairobi Aviation College", type: "college" },
+  { id: "col_003", name: "Kenya School of Law", type: "college" },
+  { id: "col_004", name: "Kenya School of Government", type: "college" },
+  { id: "col_005", name: "Kenya National Police College", type: "college" },
   {
     id: "col_006",
-    name: "Kenya National Conservatoire of Music",
+    name: "Kenya Institute of Mass Communication",
     type: "college",
   },
+  { id: "col_007", name: "Kenya Utalii College", type: "college" },
+  { id: "col_008", name: "East Africa School of Aviation", type: "college" },
+
+  /* =======================
+     MAJOR TVET INSTITUTES
+  ======================= */
   {
-    id: "col_007",
-    name: "Kenya Polytechnic University College",
-    type: "college",
+    id: "tvet_001",
+    name: "Nairobi Technical Training Institute",
+    type: "training_institute",
   },
   {
-    id: "col_008",
+    id: "tvet_002",
+    name: "Kabete National Polytechnic",
+    type: "training_institute",
+  },
+  {
+    id: "tvet_003",
+    name: "Rift Valley Technical Training Institute",
+    type: "training_institute",
+  },
+  {
+    id: "tvet_004",
+    name: "Eldoret National Polytechnic",
+    type: "training_institute",
+  },
+  {
+    id: "tvet_005",
+    name: "Meru National Polytechnic",
+    type: "training_institute",
+  },
+  {
+    id: "tvet_006",
+    name: "Nyeri National Polytechnic",
+    type: "training_institute",
+  },
+  {
+    id: "tvet_007",
+    name: "Kisumu National Polytechnic",
+    type: "training_institute",
+  },
+  {
+    id: "tvet_008",
     name: "Mombasa Technical Training Institute",
-    type: "college",
+    type: "training_institute",
   },
-  { id: "col_009", name: "Kisumu Polytechnic", type: "college" },
-  { id: "col_010", name: "Nakuru Medical Training College", type: "college" },
 ];
 
-const departmentsData = [
-  // Computing & Technology
+export const departmentsData = [
   { id: "dept_001", name: "Computer Science", category: "computing" },
   { id: "dept_002", name: "Information Technology", category: "computing" },
   { id: "dept_003", name: "Software Engineering", category: "computing" },
   { id: "dept_004", name: "Data Science", category: "computing" },
   { id: "dept_005", name: "Cyber Security", category: "computing" },
   { id: "dept_006", name: "Information Systems", category: "computing" },
-
-  // Engineering
   { id: "dept_010", name: "Civil Engineering", category: "engineering" },
   {
     id: "dept_011",
@@ -116,8 +179,6 @@ const departmentsData = [
     category: "engineering",
   },
   { id: "dept_016", name: "Industrial Engineering", category: "engineering" },
-
-  // Health & Medical Sciences
   { id: "dept_020", name: "Medicine & Surgery", category: "health" },
   { id: "dept_021", name: "Nursing", category: "health" },
   { id: "dept_022", name: "Clinical Medicine", category: "health" },
@@ -126,8 +187,6 @@ const departmentsData = [
   { id: "dept_025", name: "Medical Laboratory Sciences", category: "health" },
   { id: "dept_026", name: "Radiography & Imaging", category: "health" },
   { id: "dept_027", name: "Dental Technology", category: "health" },
-
-  // Business & Economics
   { id: "dept_030", name: "Business Administration", category: "business" },
   { id: "dept_031", name: "Commerce", category: "business" },
   { id: "dept_032", name: "Accounting", category: "business" },
@@ -140,15 +199,11 @@ const departmentsData = [
   },
   { id: "dept_036", name: "Human Resource Management", category: "business" },
   { id: "dept_037", name: "Entrepreneurship", category: "business" },
-
-  // Law & Governance
   { id: "dept_040", name: "Law", category: "law" },
   { id: "dept_041", name: "Criminology & Security Studies", category: "law" },
   { id: "dept_042", name: "International Relations", category: "law" },
   { id: "dept_043", name: "Public Administration", category: "law" },
   { id: "dept_044", name: "Political Science", category: "law" },
-
-  // Education
   { id: "dept_050", name: "Education (Arts)", category: "education" },
   { id: "dept_051", name: "Education (Science)", category: "education" },
   {
@@ -158,8 +213,6 @@ const departmentsData = [
   },
   { id: "dept_053", name: "Special Needs Education", category: "education" },
   { id: "dept_054", name: "Educational Management", category: "education" },
-
-  // Agriculture & Environmental Studies
   { id: "dept_060", name: "Agriculture", category: "agriculture" },
   { id: "dept_061", name: "Agribusiness Management", category: "agriculture" },
   { id: "dept_062", name: "Animal Science", category: "agriculture" },
@@ -171,23 +224,17 @@ const departmentsData = [
     name: "Food Science & Technology",
     category: "agriculture",
   },
-
-  // Arts, Media & Humanities
   { id: "dept_070", name: "Journalism & Mass Communication", category: "arts" },
   { id: "dept_071", name: "Film & Theatre Arts", category: "arts" },
   { id: "dept_072", name: "Communication & Media Studies", category: "arts" },
   { id: "dept_073", name: "Fine Art & Design", category: "arts" },
   { id: "dept_074", name: "Music", category: "arts" },
   { id: "dept_075", name: "Linguistics", category: "arts" },
-
-  // Social Sciences
   { id: "dept_080", name: "Sociology", category: "social" },
   { id: "dept_081", name: "Psychology", category: "social" },
   { id: "dept_082", name: "Social Work", category: "social" },
   { id: "dept_083", name: "Community Development", category: "social" },
   { id: "dept_084", name: "Development Studies", category: "social" },
-
-  // Hospitality, Tourism & Sports
   { id: "dept_090", name: "Hospitality Management", category: "hospitality" },
   { id: "dept_091", name: "Tourism Management", category: "hospitality" },
   {
@@ -196,8 +243,6 @@ const departmentsData = [
     category: "hospitality",
   },
   { id: "dept_093", name: "Sports Science", category: "hospitality" },
-
-  // TVET & Technical
   { id: "dept_100", name: "Building Construction", category: "tvet" },
   { id: "dept_101", name: "Automotive Engineering", category: "tvet" },
   { id: "dept_102", name: "Electrical Installation", category: "tvet" },
@@ -206,14 +251,11 @@ const departmentsData = [
   { id: "dept_105", name: "Fashion Design", category: "tvet" },
 ];
 
-const levelsData = [
-  // TVET & College Levels
+export const levelsData = [
   { id: "level_cert", name: "Certificate", category: "tvet" },
   { id: "level_adv_cert", name: "Advanced Certificate", category: "tvet" },
   { id: "level_dip", name: "Diploma", category: "tvet" },
   { id: "level_high_dip", name: "Higher Diploma", category: "tvet" },
-
-  // Undergraduate
   {
     id: "level_deg_yr1",
     name: "Bachelor's Degree – Year 1",
@@ -239,8 +281,6 @@ const levelsData = [
     name: "Bachelor's Degree – Year 5 (where applicable)",
     category: "undergraduate",
   },
-
-  // Postgraduate
   {
     id: "level_pg_dip",
     name: "Postgraduate Diploma",
@@ -254,8 +294,7 @@ const levelsData = [
   },
 ];
 
-const coursesData = [
-  // Computing & Technology
+export const coursesData = [
   {
     id: "course_comp_sci_101",
     name: "Introduction to Computer Science",
@@ -302,8 +341,6 @@ const coursesData = [
     name: "Mobile Application Development",
     department_id: "dept_003",
   },
-
-  // Engineering
   {
     id: "course_civil_engineering",
     name: "Civil Engineering Principles",
@@ -354,8 +391,6 @@ const coursesData = [
     name: "Telecommunication Networks",
     department_id: "dept_015",
   },
-
-  // Business
   {
     id: "course_business_admin",
     name: "Business Administration",
@@ -406,8 +441,6 @@ const coursesData = [
     name: "Entrepreneurship",
     department_id: "dept_037",
   },
-
-  // Health Sciences
   { id: "course_anatomy", name: "Human Anatomy", department_id: "dept_020" },
   {
     id: "course_nursing_fundamentals",
@@ -446,8 +479,6 @@ const coursesData = [
     name: "Dental Science",
     department_id: "dept_027",
   },
-
-  // Social Sciences
   {
     id: "course_psychology_101",
     name: "Introduction to Psychology",
@@ -486,8 +517,6 @@ const coursesData = [
     name: "Cultural Anthropology",
     department_id: "dept_080",
   },
-
-  // Arts & Humanities
   { id: "course_journalism", name: "Journalism", department_id: "dept_070" },
   {
     id: "course_communication",
@@ -522,8 +551,6 @@ const coursesData = [
     name: "Digital Media",
     department_id: "dept_072",
   },
-
-  // Education
   {
     id: "course_educational_psychology",
     name: "Educational Psychology",
@@ -574,8 +601,6 @@ const coursesData = [
     name: "Educational Technology",
     department_id: "dept_054",
   },
-
-  // Agriculture & Environmental
   { id: "course_agronomy", name: "Agronomy", department_id: "dept_060" },
   {
     id: "course_animal_husbandry",
@@ -618,8 +643,6 @@ const coursesData = [
     name: "Climate Change Studies",
     department_id: "dept_064",
   },
-
-  // Hospitality & Tourism
   {
     id: "course_hotel_management",
     name: "Hotel Management",
@@ -670,8 +693,6 @@ const coursesData = [
     name: "Tourism Impact Assessment",
     department_id: "dept_091",
   },
-
-  // TVET & Technical
   {
     id: "course_building_construction",
     name: "Building Construction",
@@ -716,95 +737,4 @@ const coursesData = [
   },
 ];
 
-/**
- * FETCH DEPARTMENTS (HARDCODED)
- */
-export const getDepartments = async () => {
-  return departmentsData;
-};
-
-/**
- * FETCH LEVELS (HARDCODED)
- */
-export const getLevels = async () => {
-  return levelsData;
-};
-
-/**
- * FETCH COURSES (HARDCODED)
- */
-export const getCourses = async () => {
-  return coursesData;
-};
-
-export const makeStudentPass = (userData = {}) => {
-  // Present only human-readable fields
-  return {
-    full_name: userData.full_name || "",
-    role: userData.role || "",
-    university: userData.university?.name || userData.universityName || "",
-    department: userData.department?.name || userData.departmentName || "",
-    level: userData.level?.name || userData.levelName || "",
-  };
-};
-
-// -------------------------
-// Denormalization (CORE)
-// -------------------------
-const findById = (list, id) => list.find((item) => item.id === id) || null;
-
-export const denormalizeUserProfile = ({
-  full_name,
-  role,
-  university_id,
-  department_id,
-  level_id,
-  universityName,
-  departmentName,
-  levelName,
-} = {}) => {
-  const university = university_id
-    ? findById(universitiesData, university_id)
-    : null;
-
-  const department = department_id
-    ? findById(departmentsData, department_id)
-    : null;
-
-  const level = level_id ? findById(levelsData, level_id) : null;
-
-  return {
-    full_name: full_name || "",
-    role: role || "",
-
-    university: {
-      id: university?.id || university_id || null,
-      name: university?.name || universityName || "",
-    },
-
-    department: {
-      id: department?.id || department_id || null,
-      name: department?.name || departmentName || "",
-    },
-
-    level: {
-      id: level?.id || level_id || null,
-      name: level?.name || levelName || "",
-    },
-  };
-};
-
-// -------------------------
-// Navigation Helper
-// -------------------------
-
-export const navigateToExplore = (navigate, profile) => {
-  if (!navigate || !profile?.university?.id) return;
-
-  navigate("/explore", {
-    state: {
-      university_id: profile.university.id,
-      universityName: profile.university.name,
-    },
-  });
-};
+export default { universitiesData, departmentsData, levelsData, coursesData };

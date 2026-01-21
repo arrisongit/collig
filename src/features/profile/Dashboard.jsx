@@ -287,7 +287,7 @@ export default function Dashboard() {
 
   if (!user || !userData) return <LoadingScreen />;
 
-  const isAdmin = userData.role === "admin" || userData.role === "super_admin";
+  // Unified role model: no admin/super_admin distinctions
 
   return (
     <>

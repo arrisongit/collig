@@ -3,6 +3,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../config/firebase";
+import Loader from "./Loader";
 
 export default function OnboardingGuard({ children }) {
   const { user, userData } = useAuth();
@@ -10,24 +11,13 @@ export default function OnboardingGuard({ children }) {
 
   useEffect(() => {
     if (!user || !userData) return;
-    const role = userData.role;
-    if (role === "student") {
-      setCompleted(userData.onboarding_completed);
-    } else if (role === "admin") {
-      setCompleted(userData.admin_onboarding_completed);
-    } else {
-      setCompleted(true); // super_admin or others
-    }
+    setCompleted(!!userData.onboarding_completed);
   }, [user, userData]);
 
-  if (completed === null) return null;
+  if (completed === null && userData) return <Loader />; // Show loader while determining onboarding status
 
   if (!completed) {
-    if (userData?.role === "student") {
-      return <Navigate to="/onboarding" replace />;
-    } else if (userData?.role === "admin") {
-      return <Navigate to="/admin-onboarding" replace />;
-    }
+    return <Navigate to="/onboarding" replace />;
   }
 
   return children;

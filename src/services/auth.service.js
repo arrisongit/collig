@@ -6,176 +6,132 @@ import {
   signOut,
   fetchSignInMethodsForEmail,
 } from "firebase/auth";
-// 1. Updated Imports here
-import {
-  doc,
-  setDoc,
-  serverTimestamp,
-  getDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-} from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { auth, db } from "../config/firebase";
 import { getFriendlyAuthError } from "../utils/firebaseErrors";
 
 const googleProvider = new GoogleAuthProvider();
 
-/**
- * CHECK IF EMAIL EXISTS (For Live Validation)
- */
+/* ----------------------------------------------------
+   EMAIL AVAILABILITY (LIVE VALIDATION)
+---------------------------------------------------- */
 export const checkEmailAvailability = async (email) => {
   try {
-    const methods = await fetchSignInMethodsForEmail(auth, email);
-    // If methods array is empty, email is available
-    return { available: methods.length === 0 };
-  } catch (error) {
-    console.error("Error checking email availability:", error);
-    // In case of error, assume available to not block registration
-    return { available: true };
+    const ref = doc(db, "registered_emails", email.toLowerCase());
+    const snap = await getDoc(ref);
+    return { available: !snap.exists() };
+  } catch {
+    return { available: false };
   }
 };
 
-/**
- * REGISTER WITH EMAIL + PASSWORD
- */
-export const registerWithEmail = async (
-  email,
-  password,
-  fullName,
-  role = "student",
-  university_id = null,
-) => {
+/* ----------------------------------------------------
+   REGISTER WITH EMAIL + PASSWORD
+---------------------------------------------------- */
+export const registerWithEmail = async (email, password, fullName) => {
   try {
+    email = email.toLowerCase();
+
+    // ✅ Check registered_emails ONLY
+    const emailRef = doc(db, "registered_emails", email);
+    const emailSnap = await getDoc(emailRef);
+    if (emailSnap.exists()) {
+      throw new Error("This email is already registered.");
+    }
+
+    // ✅ Create Auth account
+    console.log(auth, email, password);
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     const user = cred.user;
 
-    // Check for existing admin if registering as admin
-    if (role === "admin" && university_id) {
-      const adminQuery = query(
-        collection(db, "users"),
-        where("role", "==", "admin"),
-        where("university_id", "==", university_id),
-      );
-      const adminSnap = await getDocs(adminQuery);
-      if (!adminSnap.empty) {
-        // Delete the created user
-        await user.delete();
-        throw new Error(
-          "This school already has an admin. You cannot register as admin for this school.",
-        );
-      }
-    }
-
-    // Get ID token
-    const token = await user.getIdToken();
-
-    // Create Firestore profile
+    // ✅ Create Firestore profile
     const userData = {
-      uid: user.uid,
       full_name: fullName,
-      email: user.email,
-      role: role,
-      university_id: university_id,
-      department_id: null,
-      level_id: null,
+      email,
+      role: "user",
+      onboarding_completed: false,
+      university_id: null,
       created_at: serverTimestamp(),
     };
 
-    if (role === "student") {
-      userData.onboarding_completed = false;
-    } else if (role === "admin") {
-      userData.admin_onboarding_completed = false;
-    }
-
     await setDoc(doc(db, "users", user.uid), userData);
 
-    // Save session to localStorage
-    localStorage.setItem(
-      "auth_session",
-      JSON.stringify({
-        uid: user.uid,
-        email: user.email,
-        token,
-      }),
-    );
+    // ✅ Lock email
+    await setDoc(emailRef, {
+      email,
+      uid: user.uid,
+      created_at: serverTimestamp(),
+    });
 
-    return { user, token };
+    return { user, userData };
   } catch (error) {
-    if (error.code === "auth/email-already-in-use") {
-      // Check if the email is associated with Google
-      const usersRef = collection(db, "users");
-      const q = query(usersRef, where("email", "==", email));
-      const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        throw new Error(
-          "This email is already registered with Google. Please try logging in with Google instead.",
-        );
-      } else {
-        throw new Error(
-          "This email is already registered. Please try logging in instead.",
-        );
-      }
-    }
-    throw error;
+    throw new Error(getFriendlyAuthError(error));
   }
 };
 
-/**
- * Email / Password Login
- */
+/* ----------------------------------------------------
+   EMAIL / PASSWORD LOGIN
+---------------------------------------------------- */
 export const loginWithEmail = async (email, password) => {
   try {
     const res = await signInWithEmailAndPassword(auth, email, password);
     const user = res.user;
-    const token = await user.getIdToken();
 
     const snap = await getDoc(doc(db, "users", user.uid));
-
     if (!snap.exists()) {
-      throw new Error("User account not found. Please register.");
+      throw new Error("Account profile missing. Please contact support.");
     }
 
-    return { user, token, userData: snap.data() };
+    return { user, userData: snap.data() };
   } catch (error) {
     throw new Error(getFriendlyAuthError(error));
   }
 };
 
-/**
- * Google Login
- */
+/* ----------------------------------------------------
+   GOOGLE SIGN IN (AUTO-PROFILE CREATION)
+---------------------------------------------------- */
 export const signInWithGoogle = async () => {
   try {
     const res = await signInWithPopup(auth, googleProvider);
     const user = res.user;
-    const token = await user.getIdToken();
 
-    const snap = await getDoc(doc(db, "users", user.uid));
+    const userRef = doc(db, "users", user.uid);
+    const snap = await getDoc(userRef);
 
-    if (!snap.exists()) {
-      throw new Error("No account found. Please register first.");
+    /* 🔁 Existing user */
+    if (snap.exists()) {
+      return { user, userData: snap.data() };
     }
 
-    return { user, token, userData: snap.data() };
+    /* 🆕 First-time Google user */
+    const userData = {
+      full_name: user.displayName || "",
+      email: user.email.toLowerCase(),
+      role: "user",
+      university_id: null,
+      created_at: serverTimestamp(),
+      onboarding_completed: false,
+    };
+
+    await setDoc(userRef, userData);
+
+    /* 🔐 Lock email */
+    await setDoc(doc(db, "registered_emails", user.email.toLowerCase()), {
+      email: user.email.toLowerCase(),
+      uid: user.uid,
+      created_at: serverTimestamp(),
+    });
+
+    return { user, userData };
   } catch (error) {
     throw new Error(getFriendlyAuthError(error));
   }
 };
 
-/**
- * LOGOUT
- */
+/* ----------------------------------------------------
+   LOGOUT
+---------------------------------------------------- */
 export const logout = async () => {
   await signOut(auth);
-  localStorage.removeItem("auth_session");
-};
-
-/**
- * GET STORED SESSION
- */
-export const getStoredSession = () => {
-  const session = localStorage.getItem("auth_session");
-  return session ? JSON.parse(session) : null;
 };

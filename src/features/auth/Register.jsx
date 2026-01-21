@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence, useAnimation } from "framer-motion";
 import {
   User,
@@ -8,394 +8,274 @@ import {
   Eye,
   EyeOff,
   ArrowRight,
-  Chrome,
   AlertCircle,
   CheckCircle2,
-  Loader2, // Added Loader icon
+  Loader2,
+  Sparkles,
+  Zap,
 } from "lucide-react";
 import {
   registerWithEmail,
-  signInWithGoogle,
-  checkEmailAvailability, // Ensure this is exported from auth.service
+  checkEmailAvailability,
 } from "../../services/auth.service";
-import { getUniversities } from "../../services/onboarding.service";
-import { useAuth } from "../../context/AuthContext";
 
 export default function Register() {
-  const { user, userData, loading: authLoading } = useAuth();
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [selectedSchool, setSelectedSchool] = useState("");
-  const [schools, setSchools] = useState([]);
-  const [loading, setLoading] = useState(false);
-
-  // Validation State
-  const [errors, setErrors] = useState({});
-  const [validFields, setValidFields] = useState({
-    fullName: false,
-    email: false,
-    password: false,
-  });
-
-  // State for async email check
-  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
-
-  const controls = useAnimation();
   const navigate = useNavigate();
+  const controls = useAnimation();
 
-  // Check if user is already logged in
-  useEffect(() => {
-    if (!authLoading && user) {
-      if (userData?.role === "student" && !userData?.onboarding_completed) {
-        navigate("/onboarding");
-      } else if (
-        userData?.role === "admin" &&
-        !userData?.admin_onboarding_completed
-      ) {
-        navigate("/admin");
-      } else {
-        const role = userData?.role;
-        if (role === "admin" || role === "super_admin") {
-          navigate("/admin");
-        } else {
-          navigate("/dashboard");
-        }
-      }
+  // --- LOGIC & STATE (Preserved) ---
+  const [formData, setFormData] = useState({
+    fullName: "",
+    email: "",
+    password: "",
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [emailStatus, setEmailStatus] = useState("idle"); // idle | checking | valid | invalid
+
+  // UI State for focus effects
+  const [focusedField, setFocusedField] = useState(null);
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (errors[e.target.name]) {
+      setErrors((prev) => ({ ...prev, [e.target.name]: "" }));
     }
-  }, [user, userData, authLoading, navigate]);
-
-  // --- 1. Async Email Check Effect ---
-  useEffect(() => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    // Reset email validity if user is typing
-    if (email) {
-      setValidFields((prev) => ({ ...prev, email: false }));
-      // Remove error while typing/checking
-      setErrors((prev) => ({ ...prev, email: "" }));
-    }
-
-    if (email && emailRegex.test(email)) {
-      setIsCheckingEmail(true);
-
-      // Debounce: Wait 500ms after typing stops
-      const timeoutId = setTimeout(async () => {
-        try {
-          const { available } = await checkEmailAvailability(email);
-
-          if (!available) {
-            setErrors((prev) => ({
-              ...prev,
-              email: "This email is already registered.",
-            }));
-            setValidFields((prev) => ({ ...prev, email: false }));
-          } else {
-            setValidFields((prev) => ({ ...prev, email: true }));
-          }
-        } catch (error) {
-          console.error("Check failed", error);
-        } finally {
-          setIsCheckingEmail(false);
-        }
-      }, 500);
-
-      return () => clearTimeout(timeoutId);
-    } else {
-      setIsCheckingEmail(false);
-    }
-  }, [email]);
-
-  // Fetch schools when registering as admin
-  useEffect(() => {
-    if (isAdmin) {
-      const fetchSchools = async () => {
-        try {
-          const unis = await getUniversities();
-          setSchools(unis);
-        } catch (error) {
-          console.error("Error fetching schools:", error);
-        }
-      };
-      fetchSchools();
-    } else {
-      setSchools([]);
-      setSelectedSchool("");
-    }
-  }, [isAdmin]);
-
-  // --- 2. Live Validation Logic (Sync) ---
-  const validateField = (name, value) => {
-    let errorMsg = "";
-    let isValid = false;
-
-    if (name === "fullName") {
-      if (!value.trim()) {
-        errorMsg = "Full name is required";
-      } else if (value.trim().length < 2) {
-        errorMsg = "Name must be at least 2 characters";
-      } else {
-        isValid = true;
-      }
-    }
-
-    if (name === "email") {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!value) {
-        errorMsg = "Email is required";
-      } else if (!emailRegex.test(value)) {
-        errorMsg = "Please enter a valid email address";
-      } else {
-        // Validity is handled by useEffect for Email
-        return;
-      }
-    }
-
-    if (name === "password") {
-      const hasUpperCase = /[A-Z]/.test(value);
-      const hasLowerCase = /[a-z]/.test(value);
-      const isLongEnough = value.length >= 8;
-
-      if (!value) {
-        errorMsg = "Password is required";
-      } else if (!isLongEnough) {
-        errorMsg = "Password must be at least 8 characters";
-      } else if (!hasUpperCase) {
-        errorMsg = "Must contain at least one uppercase letter";
-      } else if (!hasLowerCase) {
-        errorMsg = "Must contain at least one lowercase letter";
-      } else {
-        isValid = true;
-      }
-    }
-
-    // Update state for non-async fields
-    if (name !== "email") {
-      setErrors((prev) => ({ ...prev, [name]: isValid ? "" : errorMsg }));
-      setValidFields((prev) => ({ ...prev, [name]: isValid }));
-    } else if (errorMsg) {
-      // If regex fails immediately, show error
-      setErrors((prev) => ({ ...prev, email: errorMsg }));
-    }
-
-    return isValid;
   };
 
-  // --- Handlers ---
-  const handleChange = (e, field) => {
-    const val = e.target.value;
-    if (field === "fullName") setFullName(val);
-    if (field === "email") setEmail(val);
-    if (field === "password") setPassword(val);
+  const handleEmailBlur = async () => {
+    setFocusedField(null);
+    if (!formData.email || errors.email) return;
 
-    validateField(field, val);
+    setEmailStatus("checking");
+    const { available } = await checkEmailAvailability(formData.email);
+
+    if (!available) {
+      setErrors((prev) => ({ ...prev, email: "Email is already taken" }));
+      setEmailStatus("invalid");
+    } else {
+      setEmailStatus("valid");
+    }
   };
 
-  const handleRegister = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrors({});
 
-    // Final validation check
-    const isNameValid = validFields.fullName;
-    // For email, we rely on validFields being true (set by the async check)
-    const isEmailValid = validFields.email;
-    const isPasswordValid = validFields.password;
+    const newErrors = {};
+    if (!formData.fullName) newErrors.fullName = "Full name is required";
+    if (!formData.email) newErrors.email = "Email is required";
+    if (!formData.password) newErrors.password = "Password is required";
 
-    if (isAdmin && schools.length > 0 && !selectedSchool) {
-      setErrors((prev) => ({
-        ...prev,
-        school: "Please select a school to administer",
-      }));
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       controls.start("shake");
-      setLoading(false);
       return;
     }
 
-    if (!isNameValid || !isEmailValid || !isPasswordValid || isCheckingEmail) {
+    if (emailStatus === "invalid") {
       controls.start("shake");
       return;
     }
 
     setLoading(true);
     try {
-      const role = isAdmin ? "admin" : "student";
-      const university_id = isAdmin && selectedSchool ? selectedSchool : null;
-      const { user } = await registerWithEmail(
-        email,
-        password,
-        fullName,
-        role,
-        university_id,
+      await registerWithEmail(
+        formData.email,
+        formData.password,
+        formData.fullName,
       );
-      if (user) {
-        if (role === "student") {
-          navigate("/onboarding");
-        } else {
-          navigate("/admin-onboarding");
-        }
-      }
+      navigate("/onboarding", { replace: true });
     } catch (err) {
-      setErrors((prev) => ({ ...prev, form: err.message }));
+      setErrors({ form: err.message });
       controls.start("shake");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleSignUp = async () => {
-    setLoading(true);
-    try {
-      const { user } = await signInWithGoogle();
-      if (user) navigate("/dashboard");
-    } catch (err) {
-      setErrors((prev) => ({ ...prev, form: err.message }));
-      controls.start("shake");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // --- Background Particles Configuration ---
-  const [particles, setParticles] = useState([]);
-  useEffect(() => {
-    const tempParticles = [...Array(20)].map((_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100 + 100,
-      size: Math.random() * 10 + 4,
-      duration: Math.random() * 20 + 10,
-      delay: Math.random() * 5,
-    }));
-    setParticles(tempParticles);
-  }, []);
+  // --- Background Animation Data ---
+  const orbs = [
+    {
+      id: 1,
+      color: "rgba(139, 92, 246, 0.4)",
+      top: "10%",
+      left: "10%",
+      size: "300px",
+      delay: 0,
+    },
+    {
+      id: 2,
+      color: "rgba(59, 130, 246, 0.4)",
+      top: "60%",
+      left: "70%",
+      size: "350px",
+      delay: 2,
+    },
+  ];
 
   return (
     <div style={styles.pageContainer}>
-      <div style={styles.backgroundGradient} />
+      {/* Inject global styles for placeholders */}
+      <style>
+        {`
+          input::placeholder { color: #64748b; }
+          /* Remove auto-fill background in Chrome */
+          input:-webkit-autofill,
+          input:-webkit-autofill:hover, 
+          input:-webkit-autofill:focus, 
+          input:-webkit-autofill:active{
+              -webkit-box-shadow: 0 0 0 30px #1e293b inset !important;
+              -webkit-text-fill-color: white !important;
+              transition: background-color 5000s ease-in-out 0s;
+          }
+        `}
+      </style>
 
-      {particles.map((p) => (
+      {/* --- Dynamic Background --- */}
+      <div style={styles.bgOverlay} />
+      {orbs.map((orb) => (
         <motion.div
-          key={p.id}
+          key={orb.id}
           style={{
-            ...styles.particle,
-            left: `${p.x}%`,
-            width: p.size,
-            height: p.size,
+            position: "absolute",
+            top: orb.top,
+            left: orb.left,
+            width: orb.size,
+            height: orb.size,
+            borderRadius: "50%",
+            background: `radial-gradient(circle, ${orb.color} 0%, rgba(0,0,0,0) 70%)`,
+            filter: "blur(60px)",
+            zIndex: 0,
           }}
           animate={{
-            y: [window.innerHeight + 50, -100],
-            opacity: [0, 0.6, 0],
+            y: [0, -30, 0],
+            scale: [1, 1.1, 1],
           }}
           transition={{
-            duration: p.duration,
+            duration: 8,
             repeat: Infinity,
-            delay: p.delay,
-            ease: "linear",
+            delay: orb.delay,
+            ease: "easeInOut",
           }}
         />
       ))}
 
+      {/* --- Main Card --- */}
       <motion.div
-        initial={{ opacity: 0, y: 50, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
         style={styles.card}
       >
         <div style={styles.header}>
-          <motion.h2 style={styles.title}>Create Account</motion.h2>
-          <p style={styles.subtitle}>Join us and start your journey</p>
+          <motion.div
+            whileHover={{ rotate: 15, scale: 1.1 }}
+            style={styles.iconBadge}
+          >
+            <Sparkles size={24} color="#fff" />
+          </motion.div>
+          <div>
+            <h2 style={styles.title}>Create Account</h2>
+            <p style={styles.subtitle}>Start your 14-day free trial</p>
+          </div>
         </div>
 
+        {/* Global Error */}
         <AnimatePresence>
           {errors.form && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
+              initial={{ opacity: 0, height: 0, marginTop: 0 }}
+              animate={{ opacity: 1, height: "auto", marginTop: 16 }}
+              exit={{ opacity: 0, height: 0, marginTop: 0 }}
               style={styles.globalError}
             >
-              <AlertCircle size={16} />
-              {errors.form}
+              <AlertCircle size={18} style={{ minWidth: "18px" }} />
+              <span>{errors.form}</span>
             </motion.div>
           )}
         </AnimatePresence>
 
-        <form onSubmit={handleRegister} style={styles.form}>
+        <form onSubmit={handleSubmit} style={styles.form}>
           {/* Full Name Field */}
           <motion.div
             animate={controls}
             variants={shakeVariants}
-            style={styles.fieldWrapper}
+            style={styles.fieldGroup}
           >
-            <div style={styles.labelRow}>
-              <label style={styles.label}>Full Name</label>
-              {validFields.fullName && (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  style={styles.validBadge}
-                >
-                  <CheckCircle2 size={14} color="#38A169" />
-                  <span style={styles.validText}>Valid</span>
-                </motion.div>
-              )}
-            </div>
-            <div style={styles.inputContainer}>
+            <div
+              style={{
+                ...styles.inputWrapper,
+                borderColor: errors.fullName
+                  ? "#ef4444"
+                  : focusedField === "fullName"
+                    ? "#8b5cf6"
+                    : "rgba(255,255,255,0.1)",
+                boxShadow:
+                  focusedField === "fullName"
+                    ? "0 0 0 4px rgba(139, 92, 246, 0.15)"
+                    : "none",
+              }}
+            >
               <User
-                size={18}
-                style={styles.inputIcon}
-                color={
-                  errors.fullName
-                    ? "#e74c3c"
-                    : validFields.fullName
-                      ? "#38A169"
-                      : "#F09819"
-                }
+                size={20}
+                color={focusedField === "fullName" ? "#8b5cf6" : "#64748b"}
               />
               <input
                 type="text"
-                value={fullName}
-                onChange={(e) => handleChange(e, "fullName")}
-                style={{
-                  ...styles.input,
-                  borderColor: errors.fullName
-                    ? "#e74c3c"
-                    : validFields.fullName
-                      ? "#38A169"
-                      : "rgba(0,0,0,0.1)",
-                  backgroundColor: errors.fullName ? "#fff5f5" : "white",
-                }}
-                placeholder="John Doe"
+                name="fullName"
+                value={formData.fullName}
+                onChange={handleChange}
+                onFocus={() => setFocusedField("fullName")}
+                onBlur={() => setFocusedField(null)}
+                placeholder="Full Name"
+                style={styles.input}
               />
             </div>
             {errors.fullName && (
-              <motion.span
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                style={styles.fieldError}
-              >
-                {errors.fullName}
-              </motion.span>
+              <span style={styles.errorText}>{errors.fullName}</span>
             )}
           </motion.div>
 
-          {/* Email Field with Live Check */}
+          {/* Email Field with Async Status */}
           <motion.div
             animate={controls}
             variants={shakeVariants}
-            style={styles.fieldWrapper}
+            style={styles.fieldGroup}
           >
-            <div style={styles.labelRow}>
-              <label style={styles.label}>Email Address</label>
+            <div
+              style={{
+                ...styles.inputWrapper,
+                borderColor: errors.email
+                  ? "#ef4444"
+                  : focusedField === "email"
+                    ? "#8b5cf6"
+                    : "rgba(255,255,255,0.1)",
+                boxShadow:
+                  focusedField === "email"
+                    ? "0 0 0 4px rgba(139, 92, 246, 0.15)"
+                    : "none",
+              }}
+            >
+              <Mail
+                size={20}
+                color={focusedField === "email" ? "#8b5cf6" : "#64748b"}
+              />
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                onFocus={() => setFocusedField("email")}
+                onBlur={handleEmailBlur}
+                placeholder="Email Address"
+                style={styles.input}
+              />
 
-              {/* Dynamic Badge: Checking vs Valid */}
-              {isCheckingEmail ? (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  style={styles.validBadge}
-                >
+              {/* Status Indicator */}
+              <div style={styles.statusIndicator}>
+                {emailStatus === "checking" && (
                   <motion.div
                     animate={{ rotate: 360 }}
                     transition={{
@@ -404,61 +284,18 @@ export default function Register() {
                       ease: "linear",
                     }}
                   >
-                    <Loader2 size={14} color="#F09819" />
+                    <Loader2 size={18} color="#8b5cf6" />
                   </motion.div>
-                  <span style={{ ...styles.validText, color: "#F09819" }}>
-                    Checking...
-                  </span>
-                </motion.div>
-              ) : validFields.email ? (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  style={styles.validBadge}
-                >
-                  <CheckCircle2 size={14} color="#38A169" />
-                  <span style={styles.validText}>Available</span>
-                </motion.div>
-              ) : null}
-            </div>
-            <div style={styles.inputContainer}>
-              <Mail
-                size={18}
-                style={styles.inputIcon}
-                color={
-                  errors.email
-                    ? "#e74c3c"
-                    : validFields.email
-                      ? "#38A169"
-                      : isCheckingEmail
-                        ? "#F09819"
-                        : "#F09819"
-                }
-              />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => handleChange(e, "email")}
-                style={{
-                  ...styles.input,
-                  borderColor: errors.email
-                    ? "#e74c3c"
-                    : validFields.email
-                      ? "#38A169"
-                      : "rgba(0,0,0,0.1)",
-                  backgroundColor: errors.email ? "#fff5f5" : "white",
-                }}
-                placeholder="john@example.com"
-              />
+                )}
+                {emailStatus === "valid" && !errors.email && (
+                  <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+                    <CheckCircle2 size={18} color="#22c55e" />
+                  </motion.div>
+                )}
+              </div>
             </div>
             {errors.email && (
-              <motion.span
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                style={styles.fieldError}
-              >
-                {errors.email}
-              </motion.span>
+              <span style={styles.errorText}>{errors.email}</span>
             )}
           </motion.div>
 
@@ -466,47 +303,35 @@ export default function Register() {
           <motion.div
             animate={controls}
             variants={shakeVariants}
-            style={styles.fieldWrapper}
+            style={styles.fieldGroup}
           >
-            <div style={styles.labelRow}>
-              <label style={styles.label}>Password</label>
-              {validFields.password && (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  style={styles.validBadge}
-                >
-                  <CheckCircle2 size={14} color="#38A169" />
-                  <span style={styles.validText}>Strong</span>
-                </motion.div>
-              )}
-            </div>
-            <div style={styles.inputContainer}>
+            <div
+              style={{
+                ...styles.inputWrapper,
+                borderColor: errors.password
+                  ? "#ef4444"
+                  : focusedField === "password"
+                    ? "#8b5cf6"
+                    : "rgba(255,255,255,0.1)",
+                boxShadow:
+                  focusedField === "password"
+                    ? "0 0 0 4px rgba(139, 92, 246, 0.15)"
+                    : "none",
+              }}
+            >
               <Lock
-                size={18}
-                style={styles.inputIcon}
-                color={
-                  errors.password
-                    ? "#e74c3c"
-                    : validFields.password
-                      ? "#38A169"
-                      : "#F09819"
-                }
+                size={20}
+                color={focusedField === "password" ? "#8b5cf6" : "#64748b"}
               />
               <input
                 type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => handleChange(e, "password")}
-                style={{
-                  ...styles.input,
-                  borderColor: errors.password
-                    ? "#e74c3c"
-                    : validFields.password
-                      ? "#38A169"
-                      : "rgba(0,0,0,0.1)",
-                  backgroundColor: errors.password ? "#fff5f5" : "white",
-                }}
-                placeholder="••••••••"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                onFocus={() => setFocusedField("password")}
+                onBlur={() => setFocusedField(null)}
+                placeholder="Create Password"
+                style={styles.input}
               />
               <button
                 type="button"
@@ -517,128 +342,40 @@ export default function Register() {
               </button>
             </div>
             {errors.password && (
-              <motion.span
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                style={styles.fieldError}
-              >
-                {errors.password}
-              </motion.span>
+              <span style={styles.errorText}>{errors.password}</span>
             )}
-            {!validFields.password &&
-              password.length > 0 &&
-              !errors.password && (
-                <span style={styles.hintText}>
-                  8+ chars, 1 uppercase, 1 lowercase
-                </span>
-              )}
           </motion.div>
 
-          {/* School Selection for Admin */}
-          {isAdmin && schools.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              style={styles.fieldWrapper}
-            >
-              <div style={styles.labelRow}>
-                <label style={styles.label}>School to Administer</label>
-              </div>
-              <div style={styles.inputContainer}>
-                <select
-                  value={selectedSchool}
-                  onChange={(e) => setSelectedSchool(e.target.value)}
-                  style={styles.select}
-                >
-                  <option value="">Select a school...</option>
-                  {schools.map((school) => (
-                    <option key={school.id} value={school.id}>
-                      {school.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {errors.school && (
-                <motion.span
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  style={styles.fieldError}
-                >
-                  {errors.school}
-                </motion.span>
-              )}
-            </motion.div>
-          )}
+          {/* Terms Text */}
+          <p style={styles.termsText}>
+            By creating an account, you agree to our{" "}
+            <span style={styles.linkText}>Terms</span> and{" "}
+            <span style={styles.linkText}>Privacy Policy</span>.
+          </p>
 
-          {/* Admin Checkbox */}
-          <motion.div
-            animate={controls}
-            variants={shakeVariants}
-            style={styles.checkboxWrapper}
-          >
-            <label style={styles.checkboxLabel}>
-              <input
-                type="checkbox"
-                checked={isAdmin}
-                onChange={(e) => setIsAdmin(e.target.checked)}
-                style={styles.checkbox}
-              />
-              <span style={styles.checkboxText}>Register as Admin</span>
-            </label>
-          </motion.div>
-
-          {/* Register Button */}
+          {/* Submit Button */}
           <motion.button
-            whileHover={{
-              scale: 1.02,
-              boxShadow: "0 10px 20px rgba(240, 152, 25, 0.3)",
-            }}
+            whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            type="submit"
-            disabled={loading || isCheckingEmail} // Disable if loading OR checking email
-            style={{
-              ...styles.submitBtn,
-              opacity: loading || isCheckingEmail ? 0.7 : 1,
-            }}
+            disabled={loading}
+            style={styles.submitBtn}
           >
             {loading ? (
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                style={styles.spinner}
-              />
+              <Loader2 size={20} style={styles.spinner} />
             ) : (
               <>
-                Register <ArrowRight size={18} />
+                Get Started <ArrowRight size={18} />
               </>
             )}
           </motion.button>
         </form>
 
-        <div style={styles.divider}>
-          <span style={styles.dividerLine} />
-          <span style={styles.dividerText}>OR</span>
-          <span style={styles.dividerLine} />
-        </div>
-
-        <motion.button
-          whileHover={{ scale: 1.02, backgroundColor: "#fafafa" }}
-          whileTap={{ scale: 0.98 }}
-          onClick={handleGoogleSignUp}
-          disabled={loading}
-          style={styles.googleBtn}
-        >
-          <Chrome size={20} color="#EA4335" />
-          <span>Sign up with Google</span>
-        </motion.button>
-
         <div style={styles.footer}>
           <p style={styles.footerText}>
-            Already have an account?{" "}
-            <a href="/login" style={styles.loginLink}>
-              Login here
-            </a>
+            Already a member?{" "}
+            <Link to="/login" style={styles.loginLink}>
+              Sign In
+            </Link>
           </p>
         </div>
       </motion.div>
@@ -646,215 +383,190 @@ export default function Register() {
   );
 }
 
-// ... (Variants and Styles remain the same as previous response, ensure they are included)
+// --- Animations ---
 const shakeVariants = {
-  shake: { x: [0, -10, 10, -10, 10, 0], transition: { duration: 0.4 } },
+  shake: {
+    x: [0, -10, 10, -10, 10, 0],
+    transition: { duration: 0.3 },
+  },
 };
 
+// --- Styles (Mobile First & Modern) ---
 const styles = {
   pageContainer: {
     position: "relative",
-    width: "100%",
-    minHeight: "100vh",
+    width: "100vw",
+    height: "100vh",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "20px",
-    boxSizing: "border-box",
+    backgroundColor: "#020617", // Rich black/slate
     overflow: "hidden",
     fontFamily: "'Inter', sans-serif",
+    padding: "16px",
+    boxSizing: "border-box",
   },
-  backgroundGradient: {
+  bgOverlay: {
     position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: "linear-gradient(135deg, #FF512F 0%, #F09819 100%)",
-    zIndex: -1,
-  },
-  particle: {
-    position: "absolute",
-    borderRadius: "50%",
-    backgroundColor: "rgba(255, 255, 255, 0.4)",
-    pointerEvents: "none",
+    inset: 0,
+    background: "radial-gradient(at top center, #1e1b4b 0%, #020617 80%)", // Deep indigo glow
     zIndex: 0,
-    boxShadow: "0 0 10px rgba(255, 215, 0, 0.5)",
   },
   card: {
+    position: "relative",
     width: "100%",
     maxWidth: "400px",
-    backgroundColor: "rgba(255, 255, 255, 0.85)",
-    backdropFilter: "blur(12px)",
-    WebkitBackdropFilter: "blur(12px)",
+    backgroundColor: "rgba(15, 23, 42, 0.6)", // Glass dark
+    backdropFilter: "blur(24px)",
+    WebkitBackdropFilter: "blur(24px)",
     borderRadius: "24px",
-    padding: "32px 24px",
-    boxShadow: "0 15px 35px rgba(0, 0, 0, 0.2)",
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+    padding: "32px 28px",
+    boxShadow: "0 20px 40px -10px rgba(0, 0, 0, 0.5)",
     zIndex: 10,
+    display: "flex",
+    flexDirection: "column",
+  },
+  header: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    textAlign: "center",
+    marginBottom: "28px",
+    gap: "16px",
+  },
+  iconBadge: {
+    width: "52px",
+    height: "52px",
+    borderRadius: "16px",
+    background: "linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%)", // Violet to Fuschia
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0 8px 16px rgba(139, 92, 246, 0.3)",
+  },
+  title: {
+    fontSize: "24px",
+    fontWeight: "700",
+    color: "#f8fafc",
+    margin: "0 0 6px 0",
+    letterSpacing: "-0.5px",
+  },
+  subtitle: {
+    fontSize: "14px",
+    color: "#94a3b8",
+    margin: 0,
+  },
+  globalError: {
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
+    border: "1px solid rgba(239, 68, 68, 0.2)",
+    color: "#fca5a5",
+    padding: "12px",
+    borderRadius: "12px",
+    fontSize: "13px",
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    marginBottom: "20px",
+  },
+  form: {
     display: "flex",
     flexDirection: "column",
     gap: "20px",
   },
-  header: { textAlign: "center" },
-  title: {
-    fontSize: "28px",
-    fontWeight: "800",
-    color: "#2D3748",
-    margin: "0 0 8px 0",
-    letterSpacing: "-0.5px",
-  },
-  subtitle: {
-    fontSize: "15px",
-    color: "#718096",
-    margin: 0,
-    lineHeight: "1.5",
-  },
-  globalError: {
-    backgroundColor: "#FED7D7",
-    color: "#C53030",
-    padding: "10px",
-    borderRadius: "8px",
+  fieldGroup: {
     display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    fontSize: "14px",
-    overflow: "hidden",
+    flexDirection: "column",
+    gap: "6px",
   },
-  form: { display: "flex", flexDirection: "column", gap: "16px" },
-  fieldWrapper: { display: "flex", flexDirection: "column", gap: "6px" },
-  labelRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    minHeight: "20px",
-  },
-  label: {
-    fontSize: "13px",
-    fontWeight: "600",
-    color: "#4A5568",
-    marginLeft: "4px",
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-  },
-  validBadge: { display: "flex", alignItems: "center", gap: "4px" },
-  validText: { color: "#38A169", fontSize: "11px", fontWeight: "600" },
-  inputContainer: {
+  inputWrapper: {
     position: "relative",
     display: "flex",
     alignItems: "center",
+    backgroundColor: "rgba(30, 41, 59, 0.5)", // Darker inner bg
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderRadius: "14px",
+    padding: "0 14px",
+    height: "54px", // Tall touch target
+    transition: "all 0.2s ease",
   },
   input: {
-    width: "100%",
-    padding: "14px 14px 14px 44px",
-    borderRadius: "12px",
-    border: "2px solid transparent",
-    fontSize: "16px",
-    outline: "none",
-    transition: "all 0.3s ease",
-    color: "#2D3748",
-    boxShadow: "0 2px 5px rgba(0,0,0,0.03)",
-  },
-  select: {
-    width: "100%",
-    padding: "14px",
-    borderRadius: "12px",
-    border: "2px solid transparent",
-    fontSize: "16px",
-    outline: "none",
-    transition: "all 0.3s ease",
-    color: "#2D3748",
-    boxShadow: "0 2px 5px rgba(0,0,0,0.03)",
-    backgroundColor: "white",
-  },
-  inputIcon: {
-    position: "absolute",
-    left: "14px",
-    zIndex: 2,
-    transition: "color 0.3s",
-  },
-  eyeBtn: {
-    position: "absolute",
-    right: "14px",
-    background: "none",
+    flex: 1,
+    background: "transparent",
     border: "none",
-    cursor: "pointer",
-    color: "#A0AEC0",
-    padding: 0,
+    color: "#f1f5f9",
+    fontSize: "16px", // Prevents zoom on mobile
+    padding: "0 12px",
+    outline: "none",
+    height: "100%",
+    width: "100%",
+  },
+  statusIndicator: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    width: "24px",
   },
-  fieldError: {
+  eyeBtn: {
+    background: "none",
+    border: "none",
+    padding: "8px",
+    cursor: "pointer",
+    color: "#94a3b8",
+    display: "flex",
+    alignItems: "center",
+  },
+  errorText: {
     fontSize: "12px",
-    color: "#E53E3E",
+    color: "#ef4444",
     marginLeft: "4px",
-    fontWeight: "600",
+    fontWeight: "500",
   },
-  hintText: {
-    fontSize: "11px",
-    color: "#718096",
-    marginLeft: "4px",
-    fontStyle: "italic",
+  termsText: {
+    fontSize: "12px",
+    color: "#64748b",
+    lineHeight: "1.5",
+    textAlign: "center",
+    margin: "4px 0",
+  },
+  linkText: {
+    color: "#8b5cf6",
+    cursor: "pointer",
+    fontWeight: "500",
   },
   submitBtn: {
     width: "100%",
-    padding: "16px",
+    height: "54px",
+    marginTop: "8px",
     border: "none",
-    borderRadius: "12px",
-    background: "linear-gradient(90deg, #FF512F 0%, #F09819 100%)",
+    borderRadius: "14px",
+    background: "linear-gradient(90deg, #7c3aed 0%, #9333ea 100%)", // Violet gradients
     color: "white",
     fontSize: "16px",
-    fontWeight: "700",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "8px",
-    boxShadow: "0 4px 12px rgba(240, 152, 25, 0.25)",
-    marginTop: "8px",
-  },
-  spinner: {
-    width: "20px",
-    height: "20px",
-    border: "2px solid rgba(255,255,255,0.3)",
-    borderTopColor: "white",
-    borderRadius: "50%",
-  },
-  divider: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    color: "#A0AEC0",
-    margin: "4px 0",
-  },
-  dividerLine: { flex: 1, height: "1px", backgroundColor: "#E2E8F0" },
-  dividerText: { fontSize: "12px", fontWeight: "600", letterSpacing: "1px" },
-  googleBtn: {
-    width: "100%",
-    padding: "14px",
-    backgroundColor: "white",
-    border: "1px solid #E2E8F0",
-    borderRadius: "12px",
-    color: "#4A5568",
-    fontSize: "15px",
     fontWeight: "600",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: "12px",
-    boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
-  },
-  footer: { textAlign: "center", marginTop: "8px" },
-  footerText: { fontSize: "14px", color: "#718096" },
-  loginLink: { color: "#FF512F", textDecoration: "none", fontWeight: "700" },
-  checkboxWrapper: { display: "flex", alignItems: "center", marginTop: "8px" },
-  checkboxLabel: {
-    display: "flex",
-    alignItems: "center",
     gap: "8px",
-    cursor: "pointer",
+    boxShadow: "0 4px 12px rgba(124, 58, 237, 0.3)",
   },
-  checkbox: { width: "16px", height: "16px", cursor: "pointer" },
-  checkboxText: { fontSize: "14px", color: "#4A5568", fontWeight: "500" },
+  spinner: {
+    animation: "spin 1s linear infinite",
+  },
+  footer: {
+    marginTop: "24px",
+    textAlign: "center",
+  },
+  footerText: {
+    fontSize: "14px",
+    color: "#94a3b8",
+  },
+  loginLink: {
+    color: "#f8fafc",
+    textDecoration: "none",
+    fontWeight: "600",
+    marginLeft: "4px",
+  },
 };
